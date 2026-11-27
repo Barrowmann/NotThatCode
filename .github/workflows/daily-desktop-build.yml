@@ -22,7 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          persist-credentials: false
           sparse-checkout: .github/scripts
 
       - name: Select the last main update from yesterday
@@ -62,12 +61,13 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ needs.select_commit.outputs.sha }}
-          persist-credentials: false
           sparse-checkout: |
             /*
             !/.repos/
             !/apps/mobile/modules/t3-terminal/Vendor/**/*.a
           sparse-checkout-cone-mode: false
+
+      - uses: ./.github/actions/drop-checkout-credentials
 
       - uses: ./.github/actions/setup-ci-deps
         with:

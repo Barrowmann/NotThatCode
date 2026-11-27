@@ -61,7 +61,7 @@ jobs:
 
       - uses: ./.github/actions/setup-ci-deps
         with:
-          install-args: ${{ env.CORE_INSTALL_ARGS }}
+          install-args: ${{ env.CORE_INSTALL_ARGS }} --filter=@t3tools/oxlint-plugin-t3code...
 
       - name: Check formatting and lint
         run: vp check

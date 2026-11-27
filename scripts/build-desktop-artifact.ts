@@ -43,6 +43,7 @@ import {
 import { loadRepoEnv } from "./lib/public-config.ts";
 import { selectDesktopRuntimeExternalDependencies } from "./lib/desktop-external-packages.ts";
 import { resolveCatalogDependencies } from "./lib/resolve-catalog.ts";
+import { SERVER_COMPILE_CACHE_DIR } from "./lib/server-compile-cache.ts";
 import { resolveTaggedSourceVersion } from "./lib/tagged-source-version.ts";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
@@ -768,7 +769,7 @@ export class WindowsPackagedPayloadValidationError extends Schema.TaggedError<Wi
 ) {
   override get message(): string {
     if (this.reason === "file-limit-exceeded") {
-      return `Windows packaged payload contains ${String(this.fileCount)} files; expected at most ${String(this.fileLimit)}.`;
+      return `Windows packaged payload contains ${String(this.fileCount)} files outside the prepared server cache; expected at most ${String(this.fileLimit)}.`;
     }
     if (this.reason === "unpacked-native-missing") {
       return `Windows server sidecar is missing ${String(this.missingFiles?.length ?? 0)} unpacked native files.`;
@@ -3244,15 +3245,21 @@ function collectUnpackedAsarFiles(
   return output;
 }
 
-const countPayloadFiles = Effect.fn("desktopArtifact.countPayloadFiles")(function* (root: string) {
+const countWindowsPayloadFiles = Effect.fn("desktopArtifact.countWindowsPayloadFiles")(function* (
+  root: string,
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const cacheDirectory = path.join(root, "resources", SERVER_COMPILE_CACHE_DIR);
+  const cachePrefix = `${cacheDirectory}${path.sep}`;
   const pendingDirectories = [root];
-  let count = 0;
+  let fileCount = 0;
+  let cacheFileCount = 0;
 
   while (pendingDirectories.length > 0) {
     const directory = pendingDirectories.pop();
     if (directory === undefined) break;
+    const isCacheDirectory = directory === cacheDirectory || directory.startsWith(cachePrefix);
     const entries = yield* fs.readDirectory(directory);
     for (const entry of entries) {
       const entryPath = path.join(directory, entry);
@@ -3260,12 +3267,13 @@ const countPayloadFiles = Effect.fn("desktopArtifact.countPayloadFiles")(functio
       if (stat.type === "Directory") {
         pendingDirectories.push(entryPath);
       } else if (stat.type === "File") {
-        count += 1;
+        fileCount += 1;
+        if (isCacheDirectory) cacheFileCount += 1;
       }
     }
   }
 
-  return count;
+  return { fileCount, cacheFileCount };
 });
 
 export const verifyWindowsPrimaryFffNativeLoad = Effect.fn(
@@ -3575,12 +3583,14 @@ export const validateWindowsPackagedPayload = Effect.fn(
     }
   }
 
-  const fileCount = yield* countPayloadFiles(packagedAppDir);
-  if (fileCount > fileLimit) {
+  const { fileCount, cacheFileCount } = yield* countWindowsPayloadFiles(packagedAppDir);
+  // Native packaging prepares one bytecode cache file per server module for cold starts.
+  const budgetedFileCount = fileCount - cacheFileCount;
+  if (budgetedFileCount > fileLimit) {
     return yield* new WindowsPackagedPayloadValidationError({
       reason: "file-limit-exceeded",
       packagedAppDir,
-      fileCount,
+      fileCount: budgetedFileCount,
       fileLimit,
     });
   }
@@ -3593,7 +3603,7 @@ export const validateWindowsPackagedPayload = Effect.fn(
   });
 
   yield* Effect.log(
-    `[desktop-artifact] Validated Windows payload (${String(fileCount)} files, ${String(unpackedFiles.length)} sidecar natives).`,
+    `[desktop-artifact] Validated Windows payload (${String(fileCount)} files, ${String(cacheFileCount)} prepared cache files, ${String(unpackedFiles.length)} sidecar natives).`,
   );
   return { packagedAppDir, fileCount, unpackedFiles } as const;
 });

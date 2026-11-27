@@ -26,6 +26,22 @@ function activity(timestamp, after, activity_type = "push") {
   return { timestamp, before: "previous-sha", after, activity_type };
 }
 
+test("builds the manually selected commit on the Beijing day the run was requested", async () => {
+  const github = githubWithActivity();
+  github.paginate.iterator = () => {
+    throw new Error("manual builds do not need repository activity");
+  };
+
+  assert.deepEqual(
+    await selectDailyDesktopCommit(github, {
+      ...context,
+      eventName: "workflow_dispatch",
+      sha: "selected-branch-sha",
+    }),
+    { date: "2026-11-28", sha: "selected-branch-sha" },
+  );
+});
+
 test("selects the last main update within the previous Beijing day", async () => {
   const github = githubWithActivity(
     [activity("2026-11-27T16:01:00Z", "today"), activity("2026-11-27T16:00:00Z", "midnight")],

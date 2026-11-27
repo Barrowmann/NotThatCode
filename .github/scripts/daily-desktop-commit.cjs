@@ -3,14 +3,17 @@ const BEIJING_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
 const MAIN_UPDATES = new Set(["push", "force_push", "pr_merge", "merge_queue_merge"]);
 
 async function selectDailyDesktopCommit(github, context) {
-  // Use the original run's creation time so a rerun checks the same day.
+  // Use the original run's creation time so a rerun uses the same day.
   const { data: run } = await github.rest.actions.getWorkflowRun({
     ...context.repo,
     run_id: context.runId,
   });
-  const date = new Date(Date.parse(run.created_at) + BEIJING_UTC_OFFSET_MS - DAY_MS)
+  const manual = context.eventName === "workflow_dispatch";
+  const date = new Date(Date.parse(run.created_at) + BEIJING_UTC_OFFSET_MS - (manual ? 0 : DAY_MS))
     .toISOString()
     .slice(0, 10);
+  if (manual) return { date, sha: context.sha };
+
   const start = Date.parse(`${date}T00:00:00+08:00`);
   const end = start + DAY_MS;
 

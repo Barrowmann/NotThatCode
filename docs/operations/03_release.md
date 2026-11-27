@@ -5,8 +5,9 @@
 [CI](../../.github/workflows/ci.yml) runs core development checks on pull requests and pushes to `main`.
 [Daily Desktop Build](../../.github/workflows/daily-desktop-build.yml) checks the previous Beijing calendar day at 00:15.
 When `main` received new commits, the last commit from that day is used for both the Windows x64 and macOS arm64 test installers.
+Once the workflow is on `main`, use **Actions → Daily Desktop Build → Run workflow** and pick a branch to build its current commit on demand.
 Download them from **Artifacts** on the workflow run page. The Windows installer bundles the native server.
-The daily builds use the preview channel, which keeps these packages out of the desktop update feed.
+Both scheduled and manual builds use the preview channel, which keeps these packages out of the desktop update feed.
 
 ## Upstream releases
 

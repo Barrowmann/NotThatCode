@@ -14,15 +14,11 @@ export function decide(
 ): {
   affected: Array<string>;
   outputs: {
-    typecheck: boolean;
-    build: boolean;
-    desktop_launch: boolean;
     test: boolean;
     test_packages: string;
+    test_desktop: boolean;
     test_web: boolean;
     test_server: boolean;
     rust: boolean;
-    release_smoke: boolean;
-    mobile_native: boolean;
   };
 };

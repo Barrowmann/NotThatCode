@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - hashes inputs with node:crypto and sizes the budget with node:os.
-// Runs CI's fast checks for this branch's changes: format and lint of the
+// Runs focused checks for this branch's changes: format and lint of the
 // changed files, knip, generated GraphQL operations, typecheck of the affected
 // packages and their dependents, the test files beside the changed files, and
 // the cross-file checks those miss (agent context budget, React Compiler
@@ -220,10 +220,10 @@ export const comparisonBase = Effect.fn("checkChanged.comparisonBase")(function*
   return closest;
 });
 
-// CI's lint and knip also read Astro components' frontmatter.
+// Lint and knip also read Astro components' frontmatter.
 const CODE = /\.(?:[cm]?[jt]sx?|astro)$/;
 const TEST = /\.test\.[cm]?[jt]sx?$/;
-// CI runs the .github/scripts tests with `node --test`; vitest passes a failing node:test file.
+// Vitest passes a failing node:test file, so run those tests with Node's runner.
 const NODE_TEST = /^\.github[/\\]scripts[/\\]/;
 export const splitTests = (tests: Iterable<string>) => {
   const all = [...tests];
@@ -407,7 +407,7 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
   const runKnip = files.some(
     (file) => CODE.test(file) || path.basename(file) === "package.json" || file === "knip.jsonc",
   );
-  // CI runs knip:check as a task that depends on one script per pass. The passes
+  // knip:check is a task that depends on one script per pass. The passes
   // do not depend on each other, so they run side by side here.
   const rootPackage = yield* fs
     .readFileString(inRoot("package.json"))
@@ -425,7 +425,7 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
   }
 
   // A version bump can leave a patch unused, causing pnpm to reject the install
-  // with ERR_PNPM_UNUSED_PATCH. Check it here as Release Smoke does in CI.
+  // with ERR_PNPM_UNUSED_PATCH.
   const runPatchCheck = files.some(
     (file) =>
       file === "pnpm-workspace.yaml" ||
@@ -496,7 +496,6 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     }),
   ).pipe(Effect.catch((error) => Effect.succeed({ ok: false, output: error.message })));
 
-  // CI's Lint job checks that generated GraphQL operations match their sources.
   const graphql = [
     "apps/server",
     "packages/issue-tracker-linear",
@@ -592,11 +591,9 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     );
   }
   const ciOnly = Object.entries({
-    "full test suites": outputs.test || outputs.test_web || outputs.test_server,
-    build: outputs.build,
+    "full test suites":
+      outputs.test || outputs.test_desktop || outputs.test_web || outputs.test_server,
     rust: outputs.rust,
-    "mobile native lint": outputs.mobile_native,
-    "release smoke": outputs.release_smoke,
   }).flatMap(([job, runs]) => (runs ? [job] : []));
   if (ciOnly.length > 0) summary.push(`  CI also runs: ${ciOnly.join(", ")}`);
   if (!runPatchCheck) summary.push("  unused patch check skipped: no dependency files changed");
@@ -649,7 +646,7 @@ export const checkChangedCommand = Command.make(
         }),
       ),
     ),
-).pipe(Command.withDescription("Run CI's fast checks for this branch's changes."));
+).pipe(Command.withDescription("Run focused checks for this branch's changes."));
 
 if (import.meta.main) {
   Command.run(checkChangedCommand, { version: "0.0.0" }).pipe(

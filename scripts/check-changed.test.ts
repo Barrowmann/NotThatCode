@@ -199,30 +199,10 @@ describe("check:changed", () => {
     });
   });
 
-  it("opens the built desktop app only for startup, settlement, and sidebar changes", () => {
+  it("runs Rust on native changes even when main runs the full product test scope", () => {
     const packages = readWorkspace();
-    const launches = (file: string) => decide([file], packages, false).outputs.desktop_launch;
-    for (const file of [
-      "apps/server/src/orchestration-v2/ThreadSettlementService.ts",
-      "apps/server/src/persistence/Migrations/054_ProjectionThreadsAutoSettleDisabledAt.ts",
-      "apps/web/src/components/sidebar/SidebarThreadRow.tsx",
-      "apps/desktop/src/backend/DesktopBackendManager.ts",
-      "apps/desktop/src/electron/ElectronProtocol.ts",
-      "packages/contracts/src/settings.ts",
-      "scripts/fixtures/desktop-launch/statev2.sqlite",
-    ]) {
-      assert.isTrue(launches(file), file);
-    }
-    for (const file of [
-      "apps/server/src/orchestration-v2/ThreadSettlementService.test.ts",
-      "apps/web/src/components/chat/ChatView.tsx",
-      "apps/desktop/src/updates/DesktopRemoteUpdates.ts",
-      "packages/contracts/src/orchestration.ts",
-    ]) {
-      assert.isFalse(launches(file), file);
-    }
-    // A script-only change still builds the app it opens.
-    assert.isTrue(decide(["scripts/smoke-desktop-app.ts"], packages, false).outputs.build);
+    assert.isFalse(decide(["apps/web/src/AppRoot.tsx"], packages, true).outputs.rust);
+    assert.isTrue(decide(["native/resource-monitor/src/main.rs"], packages, true).outputs.rust);
   });
 
   it.each([
@@ -230,8 +210,15 @@ describe("check:changed", () => {
     "packages/shared/src/testing/providerEnv.ts",
     "packages/shared/src/testing/gitEnv.ts",
     "packages/shared/src/testing/gitRepositoryEnv.ts",
-  ])("tests every package when the shared test setup file %s changes", (file) => {
-    assert.strictEqual(decide([file], readWorkspace(), false).outputs.test_packages, "");
+  ])("tests desktop, web, server, and shared packages when %s changes", (file) => {
+    const outputs = decide([file], readWorkspace(), false).outputs;
+    const tested = outputs.test_packages.split(" ");
+    assert.isTrue(outputs.test_desktop);
+    assert.isTrue(outputs.test_web);
+    assert.isTrue(outputs.test_server);
+    assert.includeMembers(tested, ["@t3tools/shared", "@t3tools/contracts"]);
+    assert.notInclude(tested, "@t3tools/mobile");
+    assert.notInclude(tested, "@t3tools/scripts");
   });
 });
 

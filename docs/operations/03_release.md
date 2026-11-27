@@ -1,6 +1,17 @@
-# Release Runbook
+# Build and Release Runbook
 
-Unified release workflow: `.github/workflows/release.yml`. Beta is a product label, not a release channel—channels remain `stable` and `nightly` (plus `preview` for maintainer test builds).
+## NotThatCode builds
+
+[CI](../../.github/workflows/ci.yml) runs core development checks on pull requests and pushes to `main`.
+[Daily Desktop Build](../../.github/workflows/daily-desktop-build.yml) checks the previous Beijing calendar day at 00:15.
+When `main` received new commits, the last commit from that day is used for both the Windows x64 and macOS arm64 test installers.
+Once the workflow is on `main`, use **Actions → Daily Desktop Build → Run workflow** and pick a branch to build its current commit on demand.
+Download them from **Artifacts** on the workflow run page. The Windows installer bundles the native server.
+Both scheduled and manual builds use the preview channel, which keeps these packages out of the desktop update feed.
+
+## Upstream releases
+
+The remaining sections describe the upstream [T3 Code release workflow](https://github.com/pingdotgg/t3code/blob/main/.github/workflows/release.yml) and its deployment and signing setup. Upstream release channels are `stable`, `nightly`, and `preview`.
 
 ## Channels and triggers
 
@@ -26,7 +37,7 @@ Nightly installs check `releases.atom` (the 10 newest git tags), then the `updat
 
 ## T3 Connect relay deployment
 
-`.github/workflows/deploy-relay.yml` deploys Alchemy stage `prod` on every push to `main`. See [infra/relay/README.md](../../infra/relay/README.md#deployment-ci) for required variables/secrets. Keep `.env.example` in sync with `production` public identifiers so preview builds work off non-`main` branches. After editing a secret/variable, manually run **Deploy T3 Connect relay** (with `force` unchecked).
+The upstream [Relay workflow](https://github.com/pingdotgg/t3code/blob/main/.github/workflows/deploy-relay.yml) deploys Alchemy stage `prod` on every push to `main`. See [infra/relay/README.md](../../infra/relay/README.md#deployment-ci) for required variables/secrets. Keep `.env.example` in sync with `production` public identifiers so preview builds work off non-`main` branches. After editing a secret/variable, manually run **Deploy T3 Connect relay** (with `force` unchecked).
 
 Labeling a same-repo PR `relay:preview` deploys stage `pr-<number>` (cleaned up on unlabel/close).
 
@@ -37,7 +48,7 @@ Labeling a same-repo PR `relay:preview` deploys stage `pr-<number>` (cleaned up 
 ## Mobile releases
 
 - **iOS TestFlight / App Store:** Merges to `main` publish compatible OTAs and build TestFlight prereleases (`testflight` profile at `3.0.0`). To cut an App Store build, dispatch **Mobile EAS Production** (`mode=build`, `profile=production`, `platform=ios`, explicit version). Before shipping `3.0.0` to the App Store, advance `build.testflight.env.T3CODE_MOBILE_VERSION` in `apps/mobile/eas.json` to the next unreleased major.
-- **Android APK mirror:** `.github/workflows/mobile-android-apk.yml` polls Google Play Alpha hourly and mirrors new Play-signed universal APKs to `android-beta-<build-number>` prereleases (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`). Nightlies attach the latest internal-testing APK when available.
+- **Android APK mirror:** The upstream [APK mirror workflow](https://github.com/pingdotgg/t3code/blob/main/.github/workflows/mobile-android-apk.yml) polls Google Play Alpha hourly and mirrors new Play-signed universal APKs to `android-beta-<build-number>` prereleases (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`). Nightlies attach the latest internal-testing APK when available.
 
 ## Windows payload topology and update validation
 

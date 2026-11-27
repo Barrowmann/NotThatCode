@@ -96,6 +96,7 @@ jobs:
       - name: Test affected packages
         env:
           TEST_PACKAGES: ${{ needs.changes.outputs.test_packages }}
+          VITEST_MAX_WORKERS: "2"
         run: |
           filters=(--filter './packages/*')
           if [[ -n "$TEST_PACKAGES" ]]; then
@@ -103,7 +104,7 @@ jobs:
             filters=()
             for package in "${packages[@]}"; do filters+=(--filter "$package"); done
           fi
-          vp run --parallel --concurrency-limit 4 "${filters[@]}" test
+          vp run --parallel --concurrency-limit 2 "${filters[@]}" test
 
   test_desktop:
     name: Test Desktop
